@@ -82,7 +82,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     }
     Process {
         try {
-            $result = Invoke-WebRequest -Body "$($Xml.InnerXml)" -Headers $headers
+            $result = Invoke-WebRequest -Body "$($Xml.InnerXml)" -Headers $headers @iwrParams
             return $result.Content
         }
         catch {
