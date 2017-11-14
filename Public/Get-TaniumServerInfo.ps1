@@ -17,7 +17,6 @@ function Get-TaniumServerInfo {
         $iwrParams = @{
             Uri         = $uri
             Method      = "Get"
-            Credential  = $Credential
             ErrorAction = "Stop"
         }
         if (!$IsCoreCLR) {

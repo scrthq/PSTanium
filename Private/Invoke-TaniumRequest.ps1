@@ -2,28 +2,34 @@ function Invoke-TaniumRequest {
     [CmdletBinding()]
     Param (
         # Hashtable of Objects
-        [Parameter(Mandatory = $true, Position = 1)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [Hashtable[]]
         $ObjectList,
         # Hashtable of Options
-        [Parameter(Mandatory = $false, Position = 2)]
+        [Parameter(Mandatory = $false, Position = 1)]
         [Hashtable[]]
-        $Options,
+        $Options = @(@{suppress_object_list = 1}),
         # Uri of SOAP endpoint
         [Parameter(Mandatory = $false)]
         [Uri]
         $Uri = ([Uri]"https://$($script:PSTanium.Server)/soap"),
-        # Command to run
-        [Parameter(Mandatory = $false, Position = 0)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("GetResultInfo","GetResultData","GetMergedResultData","AddObject","GetObject","DeleteObject")]
         [String]
         $Command = "GetObject",
-        # The Tanium Server FQDN or IP
+        [Parameter(Mandatory = $false)]
+        [String]
+        $ObjectType,
+        [Parameter(Mandatory = $false)]
+        [String]
+        $ObjectSubType,
+        [Parameter(Mandatory = $false)]
+        [Switch]
+        $Raw,
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
         [String]
         $Server = $script:PSTanium.Server,
-        # Credentials for Tanium Server
         [Parameter(Mandatory = $false)]
         [ValidateNotNull()]
         [PSCredential]
@@ -31,14 +37,17 @@ function Invoke-TaniumRequest {
     )
     Begin {
         try {
-            $session = (Get-TaniumSession -Server $Server -Credential $Credential -ErrorAction Stop)
+            $headers = @{
+                Accept  = "*/*"
+                session = (Get-TaniumSession -Server $Server -Credential $Credential -ErrorAction Stop)
+            }
         }
         catch {
             $PSCmdlet.ThrowTerminatingError($_)
         }
         $iwrParams = @{
-            Uri         = $uri
-            Method      = "Get"
+            Uri         = $Uri
+            Method      = "Post"
             Credential  = $Credential
             ErrorAction = "Stop"
             ContentType = "text/xml"
@@ -60,10 +69,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         else {
             $iwrParams["SkipCertificateCheck"] = $true
         }
-        $headers = @{
-            Accept  = "*/*"
-            session = $session
-        }
         $Xml = [Xml]@"
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <SOAP-ENV:Body>
@@ -79,11 +84,27 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         if ($Options) {
             $Xml = Convert-HashToTanium -BaseXml $Xml -Hashtable $Options -ElementName "options"
         }
+        Write-Verbose "InnerXML for query:`n`n$($Xml.InnerXML)"
     }
     Process {
         try {
             $result = Invoke-WebRequest -Body "$($Xml.InnerXml)" -Headers $headers @iwrParams
-            return $result.Content
+            if ($Raw) {
+                return [Xml]($result.Content)
+            }
+            else {
+                if ($ObjectType) {
+                    if ($ObjectSubType) {
+                        return ([Xml]($result.Content)).Envelope.Body.return.result_object.$ObjectType.$ObjectSubType
+                    }
+                    else {
+                        return ([Xml]($result.Content)).Envelope.Body.return.result_object.$ObjectType
+                    }
+                }
+                else {
+                    return ([Xml]($result.Content)).Envelope.Body.return.result_object
+                }
+            }
         }
         catch {
             $PSCmdlet.ThrowTerminatingError($_)
