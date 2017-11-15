@@ -1,15 +1,15 @@
-function Get-TaniumUser {
-    [CmdletBinding(DefaultParameterSetName = "Name")]
+function Resolve-TaniumQuestion {
+    [CmdletBinding()]
     Param (
-        [parameter(Mandatory = $true,Position = 0,ParameterSetName = "Name")]
+        [parameter(Mandatory = $true,Position = 0)]
         [String[]]
-        $Name,
-        [parameter(Mandatory = $true,Position = 0,ParameterSetName = "Id")]
-        [String[]]
-        $Id,
-        [parameter(Mandatory = $true,Position = 0,ParameterSetName = "All")]
+        $Question,
+        [parameter(Mandatory = $false)]
         [Switch]
-        $All,
+        $Top,
+        [parameter(Mandatory = $false)]
+        [Int]
+        $ParserVersion = 2,
         [Parameter(Mandatory = $false)]
         [ValidateSet("Xml","Hashtable","PSObject")]
         [ValidateNotNullOrEmpty()]
@@ -33,46 +33,35 @@ function Get-TaniumUser {
             Credential    = $Credential
             As            = $As
             ErrorAction   = "Stop"
-            Command       = "GetObject"
-            ObjectType    = "users"
-            ObjectSubType = "user"
+            Command       = "AddObject"
+            ObjectType    = "parse_result_groups"
+            ObjectSubType = "parse_result_group"
         }
         if ($PSBoundParameters.Keys -contains "Raw") {
             $itrParams["Raw"] = $Raw
         }
     }
     Process {
-        $list = switch ($PSCmdlet.ParameterSetName) {
-            Name {
-                $Name
-            }
-            Id {
-                $Id
-            }
-            All {
-                $null
-            }
-        }
         $objectList = @()
-        if ($list) {
-            foreach ($item in $list) {
-                $objectList += @{
-                    users = @{
-                        "$(($PSCmdlet.ParameterSetName).ToLower())" = $item
-                    }
-                }
+        foreach ($item in $Question) {
+            $job = @{
+                question_text = $item
             }
-        }
-        else {
+            if ($ParserVersion) {
+                $job["parser_version"] = $ParserVersion
+            }
             $objectList += @{
-                users = @{
-                    name = $null
-                }
+                parse_job = $job
             }
         }
         try {
             $result = Invoke-TaniumRequest -ObjectList $objectList @itrParams
-            return $result
+            if ($Top) {
+                return $result.question[0]
+            }
+            else {
+                return $result
+            }
         }
         catch {
             $PSCmdlet.ThrowTerminatingError($_)

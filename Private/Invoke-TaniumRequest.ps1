@@ -18,6 +18,11 @@ function Invoke-TaniumRequest {
         [String]
         $Command = "GetObject",
         [Parameter(Mandatory = $false)]
+        [ValidateSet("Xml","Hashtable","PSObject")]
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $As = "Hashtable",
+        [Parameter(Mandatory = $false)]
         [String]
         $ObjectType,
         [Parameter(Mandatory = $false)]
@@ -89,20 +94,42 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     Process {
         try {
             $result = Invoke-WebRequest -Body "$($Xml.InnerXml)" -Headers $headers @iwrParams
-            if ($Raw) {
-                return [Xml]($result.Content)
+            $final = [Xml]($result.Content)
+            if ($final.Envelope.Body.return.command -clike "ERROR: *") {
+                throw "$($final.Envelope.Body.return.command)"
             }
             else {
-                if ($ObjectType) {
-                    if ($ObjectSubType) {
-                        return ([Xml]($result.Content)).Envelope.Body.return.result_object.$ObjectType.$ObjectSubType
+                if (!$Raw) {
+                    Write-Verbose "Formatting results"
+                    if ($Command -eq "GetResultInfo") {
+                        $final = [Xml]($final.Envelope.Body.return.ResultXML.'#cdata-section')
+                        $ObjectType = "result_infos"
+                        $ObjectSubType = "result_info"
+                    }
+                    elseif ($Command -eq "GetResultData") {
+                        $final = [Xml]($final.Envelope.Body.return.ResultXML.'#cdata-section')
+                        $ObjectType = "result_sets"
+                        $ObjectSubType = "result_set"
                     }
                     else {
-                        return ([Xml]($result.Content)).Envelope.Body.return.result_object.$ObjectType
+                        $final = $final.Envelope.Body.return.result_object
+                    }
+                    if ($ObjectType) {
+                        if ($ObjectSubType) {
+                            $final = $final.$ObjectType.$ObjectSubType
+                        }
+                        else {
+                            $final = $final.$ObjectType
+                        }
                     }
                 }
-                else {
-                    return ([Xml]($result.Content)).Envelope.Body.return.result_object
+                switch ($As) {
+                    Xml {
+                        return $final
+                    }
+                    Default {
+                        return (Convert-XmlToHash -Node $final -As $As)
+                    }
                 }
             }
         }

@@ -14,6 +14,11 @@ function Get-TaniumSensor {
         [Switch]
         $All,
         [Parameter(Mandatory = $false)]
+        [ValidateSet("Xml","Hashtable","PSObject")]
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $As = "Hashtable",
+        [Parameter(Mandatory = $false)]
         [Switch]
         $Raw,
         [Parameter(Mandatory = $false)]
@@ -27,30 +32,30 @@ function Get-TaniumSensor {
     )
     Begin {
         $itrParams = @{
-            Server = $Server
-            Credential = $Credential
+            Server      = $Server
+            Credential  = $Credential
             ErrorAction = "Stop"
-            ObjectType = "sensor"
+            Command     = "GetObject"
+            ObjectType  = "sensor"
         }
+        if ($All -and $As -ne "Xml") {
+            Write-Warning "Returning results as 'Xml' instead of '$As' for efficiency"
+            $As = "Xml"
+        }
+        $itrParams["As"] = $As
         if ($PSBoundParameters.Keys -contains "Raw") {
             $itrParams["Raw"] = $Raw
         }
-    }
-    Process {
         $list = switch ($PSCmdlet.ParameterSetName) {
-            Name {
-                $Name
-            }
-            Id {
-                $Id
-            }
-            Hash {
-                $Hash
-            }
             All {
                 $null
             }
+            Default {
+                (Get-Variable -Name ($PSCmdlet.ParameterSetName) -ValueOnly)
+            }
         }
+    }
+    Process {
         $objectList = @()
         if ($list) {
             foreach ($item in $list) {
