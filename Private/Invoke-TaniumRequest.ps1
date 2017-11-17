@@ -74,7 +74,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         else {
             $iwrParams["SkipCertificateCheck"] = $true
         }
-        $Xml = [Xml]@"
+        $xml = [Xml]@"
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <SOAP-ENV:Body>
         <typens:tanium_soap_request xmlns:typens="urn:TaniumSOAP">
@@ -84,16 +84,16 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 </SOAP-ENV:Envelope>
 "@
         if ($ObjectList) {
-            $Xml = Convert-HashToTanium -BaseXml $Xml -Hashtable $ObjectList
+            $xml = Convert-HashToTanium -BaseXml $xml -Hashtable $ObjectList
         }
         if ($Options) {
-            $Xml = Convert-HashToTanium -BaseXml $Xml -Hashtable $Options -ElementName "options"
+            $xml = Convert-HashToTanium -BaseXml $xml -Hashtable $Options -ElementName "options"
         }
-        Write-Verbose "InnerXML for query:`n`n$($Xml.InnerXML)"
+        Write-Verbose "InnerXML for query:`n`n$($xml.InnerXML)"
     }
     Process {
         try {
-            $result = Invoke-WebRequest -Body "$($Xml.InnerXml)" -Headers $headers @iwrParams
+            $result = Invoke-WebRequest -Body "$($xml.InnerXml)" -Headers $headers @iwrParams
             $final = [Xml]($result.Content)
             if ($final.Envelope.Body.return.command -clike "ERROR: *") {
                 throw "$($final.Envelope.Body.return.command)"
