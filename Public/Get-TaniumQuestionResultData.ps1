@@ -3,6 +3,9 @@ function Get-TaniumQuestionResultData {
     Param (
         [parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true, Position = 0)]
         $Id,
+        [parameter(Mandatory = $false)]
+        [String]
+        $Delimiter = "`n",
         [Parameter(Mandatory = $false)]
         [ValidateSet("Xml","Hashtable","PSObject")]
         [ValidateNotNullOrEmpty()]
@@ -67,7 +70,7 @@ function Get-TaniumQuestionResultData {
                         foreach ($row in ($result.rs.r)) {
                             $rowHash = @{}
                             for ($i = 0; $i -lt $headers.Count; $i++) {
-                                $rowHash[$headers[$i]] = ($row.c[$i].v | Where-Object {![String]::IsNullOrWhiteSpace($_.ToString())}) -join "`n"
+                                $rowHash[$headers[$i]] = ($row.c[$i].v | Where-Object {![String]::IsNullOrWhiteSpace($_.ToString())}) -join "$Delimiter"
                             }
                             switch ($As) {
                                 Hashtable {
